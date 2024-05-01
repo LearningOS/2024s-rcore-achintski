@@ -14,7 +14,7 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
-use crate::config::MAX_APP_NUM;
+use crate::config::{MAX_APP_NUM, MAX_SYSCALL_NUM};
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
 use lazy_static::*;
@@ -22,6 +22,9 @@ use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
 
 pub use context::TaskContext;
+// lab1
+use crate::timer::get_time_ms;
+use crate::syscall::TaskInfo;
 
 /// The task manager, where all the tasks are managed.
 ///
@@ -54,6 +57,10 @@ lazy_static! {
         let mut tasks = [TaskControlBlock {
             task_cx: TaskContext::zero_init(),
             task_status: TaskStatus::UnInit,
+            // lab1
+            syscall_times: [0; MAX_SYSCALL_NUM],
+            start_time: 0,// 第一次被调度的时间
+            
         }; MAX_APP_NUM];
         for (i, task) in tasks.iter_mut().enumerate() {
             task.task_cx = TaskContext::goto_restore(init_app_cx(i));
@@ -81,6 +88,9 @@ impl TaskManager {
         let task0 = &mut inner.tasks[0];
         task0.task_status = TaskStatus::Running;
         let next_task_cx_ptr = &task0.task_cx as *const TaskContext;
+        // lab1
+        task0.start_time = get_time_ms();
+
         drop(inner);
         let mut _unused = TaskContext::zero_init();
         // before this, we should drop local variables that must be dropped manually
@@ -125,6 +135,11 @@ impl TaskManager {
             inner.current_task = next;
             let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
             let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
+            // lab1
+            if inner.tasks[next].start_time == 0 {
+                inner.tasks[next].start_time = get_time_ms();
+            }
+
             drop(inner);
             // before this, we should drop local variables that must be dropped manually
             unsafe {
@@ -168,4 +183,27 @@ pub fn suspend_current_and_run_next() {
 pub fn exit_current_and_run_next() {
     mark_current_exited();
     run_next_task();
+}
+
+// lab1
+/// update tcb syscall_times
+pub fn update_syscall_times(syscall_id: usize) {
+    // 只需要更新tcb中的syscall_times
+    let mut inner = TASK_MANAGER.inner.exclusive_access();
+    let id = inner.current_task;
+    let task = &mut inner.tasks[id];
+    task.syscall_times[syscall_id] += 1;
+}
+
+// lab1
+/// init task_info from tcb
+pub fn init_task_info(_ti: *mut TaskInfo){
+    let ms = get_time_ms();
+    let mut inner = TASK_MANAGER.inner.exclusive_access();
+    let id = inner.current_task;
+    let task = &mut inner.tasks[id];
+    let ti = unsafe { &mut *_ti };
+    ti.status = TaskStatus::Running;
+    ti.time = ms - task.start_time;
+    ti.syscall_times.clone_from_slice(&task.syscall_times);
 }
