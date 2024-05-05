@@ -5,6 +5,8 @@ use crate::mm::{
     kernel_stack_position, MapPermission, MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE,
 };
 use crate::trap::{trap_handler, TrapContext};
+// lab1
+use crate::config::MAX_SYSCALL_NUM;
 
 /// The task control block (TCB) of a task.
 pub struct TaskControlBlock {
@@ -28,6 +30,13 @@ pub struct TaskControlBlock {
 
     /// Program break
     pub program_brk: usize,
+
+    // lab1
+    // 注意上面既然有了文档注释，下面添加的部分也必须有
+    /// The numbers of syscall called by task
+    pub syscall_times: [u32; MAX_SYSCALL_NUM],
+    /// The first time when the task is scheduled
+    pub start_time: usize,
 }
 
 impl TaskControlBlock {
@@ -63,6 +72,9 @@ impl TaskControlBlock {
             base_size: user_sp,
             heap_bottom: user_sp,
             program_brk: user_sp,
+            // lab1
+            syscall_times: [0; MAX_SYSCALL_NUM],
+            start_time: 0,// 第一次被调度的时间
         };
         // prepare TrapContext in user space
         let trap_cx = task_control_block.get_trap_cx();

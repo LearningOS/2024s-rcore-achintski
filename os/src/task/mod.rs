@@ -23,6 +23,13 @@ use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
 
 pub use context::TaskContext;
+// lab1
+use crate::timer::get_time_ms;
+use crate::syscall::TaskInfo;
+// lab2
+use crate::mm::translated_byte_t;
+use crate::mm::{VirtAddr, MapPermission};
+use crate::config::MAX_SYSCALL_NUM;
 
 /// The task manager, where all the tasks are managed.
 ///
@@ -58,6 +65,7 @@ lazy_static! {
         for i in 0..num_app {
             tasks.push(TaskControlBlock::new(get_app_data(i), i));
         }
+        // lab1中更新的操作移动到了/task/task.rs中的new中
         TaskManager {
             num_app,
             inner: unsafe {
@@ -80,6 +88,9 @@ impl TaskManager {
         let next_task = &mut inner.tasks[0];
         next_task.task_status = TaskStatus::Running;
         let next_task_cx_ptr = &next_task.task_cx as *const TaskContext;
+        // lab1
+        next_task.start_time = get_time_ms();
+
         drop(inner);
         let mut _unused = TaskContext::zero_init();
         // before this, we should drop local variables that must be dropped manually
@@ -143,6 +154,11 @@ impl TaskManager {
             inner.current_task = next;
             let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
             let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
+            // lab1
+            if inner.tasks[next].start_time == 0 {
+                inner.tasks[next].start_time = get_time_ms();
+            }
+
             drop(inner);
             // before this, we should drop local variables that must be dropped manually
             unsafe {
@@ -201,4 +217,54 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 /// Change the current 'Running' task's program break
 pub fn change_program_brk(size: i32) -> Option<usize> {
     TASK_MANAGER.change_current_program_brk(size)
+}
+// lab1
+/// update tcb syscall_times
+pub fn update_syscall_times(syscall_id: usize) {
+    // 只需要更新tcb中的syscall_times
+    let mut inner = TASK_MANAGER.inner.exclusive_access();
+    let id = inner.current_task;
+    let task = &mut inner.tasks[id];
+    task.syscall_times[syscall_id] += 1;
+}
+
+// lab1
+/// init task_info from tcb
+pub fn init_task_info(_ti: *mut TaskInfo){
+    let ms = get_time_ms();
+    let mut inner = TASK_MANAGER.inner.exclusive_access();
+    let id = inner.current_task;
+    let task = &mut inner.tasks[id];
+    // lab2
+    let mut syscall_times: [u32; MAX_SYSCALL_NUM] = [0; MAX_SYSCALL_NUM];
+    syscall_times.copy_from_slice(&task.syscall_times);
+    let ti = TaskInfo {
+        status: TaskStatus::Running,
+        syscall_times,
+        time: ms - task.start_time,
+    };
+    translated_byte_t(current_user_token(), _ti, ti);
+}
+
+// lab2
+/// sys_mmap
+pub fn current_ms_mmap(start_va: VirtAddr, end_va: VirtAddr, perm: MapPermission) -> isize {
+    let mut inner = TASK_MANAGER.inner.exclusive_access();
+    let id = inner.current_task;
+    let task = &mut inner.tasks[id];
+    let ms = &mut task.memory_set;
+    // 重叠则返回-1
+    if ms.is_overlap(start_va, end_va) {
+        return -1;
+    }
+    ms.insert_framed_area(start_va, end_va, perm);
+    0
+}
+/// sys_munmap
+pub fn current_ms_munmap(start_va: VirtAddr, end_va: VirtAddr) -> isize {
+    let mut inner = TASK_MANAGER.inner.exclusive_access();
+    let id = inner.current_task;
+    let task = &mut inner.tasks[id];
+    let ms = &mut task.memory_set;
+    ms.current_ms_munmap(start_va, end_va)
 }
