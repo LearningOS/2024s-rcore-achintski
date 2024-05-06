@@ -169,6 +169,16 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+    // lab2
+    /// get current taskinfo
+    #[allow(unused)]
+    fn current_task_info(&self) -> (TaskStatus, [u32; MAX_SYSCALL_NUM], usize) {
+        let mut inner = self.inner.exclusive_access();
+        let id = inner.current_task;
+        let task = &mut inner.tasks[id];
+        let ms = get_time_ms();
+        (TaskStatus::Running, task.syscall_times, ms - task.start_time)
+    }
 }
 
 /// Run the first task in task list.
@@ -231,17 +241,23 @@ pub fn update_syscall_times(syscall_id: usize) {
 // lab1
 /// init task_info from tcb
 pub fn init_task_info(_ti: *mut TaskInfo){
-    let ms = get_time_ms();
-    let mut inner = TASK_MANAGER.inner.exclusive_access();
-    let id = inner.current_task;
-    let task = &mut inner.tasks[id];
     // lab2
-    let mut syscall_times: [u32; MAX_SYSCALL_NUM] = [0; MAX_SYSCALL_NUM];
-    syscall_times.copy_from_slice(&task.syscall_times);
+    // 如果按下面注释中的方式创建TaskInfo变量，则会报错：
+    // Panicked at src/sync/up.rs:28 already borrowed: BorrowMutError
+    // let ms = get_time_ms();
+    // let mut inner = TASK_MANAGER.inner.exclusive_access();
+    // let id = inner.current_task;
+    // let task = &mut inner.tasks[id];
+    // let ti = TaskInfo {
+    //     status: TaskStatus::Running,
+    //     syscall_times: task.syscall_times.clone(),
+    //     time: ms - task.start_time,
+    // };
+    let taskinfo = TASK_MANAGER.current_task_info();
     let ti = TaskInfo {
-        status: TaskStatus::Running,
-        syscall_times,
-        time: ms - task.start_time,
+        status: taskinfo.0,
+        syscall_times: taskinfo.1,
+        time: taskinfo.2,
     };
     translated_byte_t(current_user_token(), _ti, &ti);
 }

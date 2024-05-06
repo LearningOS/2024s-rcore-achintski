@@ -62,7 +62,6 @@ pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
         sec: us / 1_000_000,
         usec: us % 1_000_000,
     };
-    
     translated_byte_t(current_user_token(), _ts, &ts);
     0
 }

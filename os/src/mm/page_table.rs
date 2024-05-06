@@ -5,7 +5,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use bitflags::*;
 // lab2
-//use super::{PhysAddr};
+use super::{PhysAddr};
 use core::mem;
 
 bitflags! {
@@ -192,10 +192,11 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
 
 // lab2
 /// Translate&Copy t into ptr in byte way
-#[allow(unused)]
 pub fn translated_byte_t<T>(token: usize, ptr: *mut T, t: &T) {
     // 手动查表，并不控制资源生命
-    // 需要找到物理地址，在内核中直接访问
+    // 本质上是从内核地址空间拷贝数据到用户地址空间
+    // 结构体变量在用户地址空间中的虚拟地址是连续的
+    // 需要将用户地址空间中的虚拟地址转换为物理地址，在（采用直接映射的）内核中直接访问
     let t_ptr = t as *const T as *const u8;
     let page_table = PageTable::from_token(token);
     let mut start = ptr as usize;
@@ -205,13 +206,15 @@ pub fn translated_byte_t<T>(token: usize, ptr: *mut T, t: &T) {
         let start_va = VirtAddr::from(start);
         let vpn = start_va.floor();
         let ppn = page_table.translate(vpn).unwrap().ppn();
-        // let pa = PhysAddr::from(usize::from(PhysAddr::from(ppn)) + start_va.page_offset());
-        // let pa_ptr = pa.0 as *mut u8;
-        // unsafe { *pa_ptr = *t_ptr.offset(t_offset as isize); }
-        let bytes_array = ppn.get_bytes_array();
-        let src = unsafe { &*t_ptr.offset(t_offset as isize) };
-        let dst = &mut bytes_array[start_va.page_offset()..start_va.page_offset() + 1];
-        dst.copy_from_slice(core::slice::from_ref(src));
+        let pa = PhysAddr::from(usize::from(PhysAddr::from(ppn)) + start_va.page_offset());
+        let pa_ptr = pa.0 as *mut u8;
+        unsafe { *pa_ptr = *t_ptr.offset(t_offset as isize); }
+        // 法2：借助translated_byte_buffer函数
+        // 法3：直接拷贝长度为1的slice
+        // let bytes_array = ppn.get_bytes_array();
+        // let src = unsafe { &*t_ptr.offset(t_offset as isize) };
+        // let dst = &mut bytes_array[start_va.page_offset()..start_va.page_offset() + 1];
+        // dst.copy_from_slice(core::slice::from_ref(src));
         t_offset += 1;
         start += 1;
     }
