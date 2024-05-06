@@ -243,7 +243,7 @@ pub fn init_task_info(_ti: *mut TaskInfo){
         syscall_times,
         time: ms - task.start_time,
     };
-    translated_byte_t(current_user_token(), _ti, ti);
+    translated_byte_t(current_user_token(), _ti, &ti);
 }
 
 // lab2
