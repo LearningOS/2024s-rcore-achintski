@@ -44,6 +44,40 @@ impl MemorySet {
             areas: Vec::new(),
         }
     }
+    // lab2
+    /// sys_mmap 重叠返回true，不重叠返回false
+    pub fn is_overlap(&self, start_va: VirtAddr, end_va: VirtAddr) -> bool{
+        // [start, end)
+        let start_vpn = start_va.floor();
+        let end_vpn = end_va.ceil();
+        for area in &self.areas {
+            if !(area.vpn_range.get_start() >= end_vpn || area.vpn_range.get_end() <= start_vpn) {
+                return true;
+            }
+        }
+        false
+    }
+    // lab2
+    /// sys_munmap ms
+    pub fn current_ms_munmap(&mut self, start_va: VirtAddr, end_va: VirtAddr) -> isize {
+        // [start, end)
+        let start_vpn = start_va.floor();
+        let end_vpn = end_va.ceil();
+        let areas = &mut self.areas;
+        for i in 0..areas.len() {
+            let area = &areas[i];
+            if area.vpn_range.get_start() == start_vpn && area.vpn_range.get_end() == end_vpn {
+                // 解除area映射
+                areas.remove(i);
+                // 解除pt映射
+                let pt = &mut self.page_table;
+                pt.munmap(start_va, end_va);
+                return 0;
+            }
+        }
+        -1
+    }
+
     /// Get the page table token
     pub fn token(&self) -> usize {
         self.page_table.token()

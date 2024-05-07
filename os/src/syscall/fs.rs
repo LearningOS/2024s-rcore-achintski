@@ -5,10 +5,16 @@ use crate::task::{current_task, current_user_token, suspend_current_and_run_next
 
 const FD_STDIN: usize = 0;
 const FD_STDOUT: usize = 1;
+// lab1
+use super::{SYSCALL_WRITE};
+use crate::task::update_syscall_times;
 
 /// write buf of length `len`  to a file with `fd`
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     trace!("kernel:pid[{}] sys_write", current_task().unwrap().pid.0);
+    // lab1
+    update_syscall_times(SYSCALL_WRITE);
+
     match fd {
         FD_STDOUT => {
             let buffers = translated_byte_buffer(current_user_token(), buf, len);

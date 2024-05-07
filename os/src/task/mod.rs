@@ -35,6 +35,10 @@ pub use processor::{
     current_task, current_trap_cx, current_user_token, run_tasks, schedule, take_current_task,
     Processor,
 };
+// lab3
+pub use processor::{
+    update_syscall_times, init_task_info, current_ms_mmap, current_ms_munmap,set_current,
+};
 /// Suspend the current 'Running' task and run the next task in task list.
 pub fn suspend_current_and_run_next() {
     // There must be an application running.

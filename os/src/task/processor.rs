@@ -11,6 +11,13 @@ use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
 use alloc::sync::Arc;
 use lazy_static::*;
+// lab1
+use crate::timer::get_time_ms;
+use crate::syscall::TaskInfo;
+// lab2
+use crate::mm::translated_byte_t;
+use crate::mm::{VirtAddr, MapPermission};
+use crate::config::MAX_SYSCALL_NUM;
 
 /// Processor management structure
 pub struct Processor {
@@ -28,6 +35,12 @@ impl Processor {
             current: None,
             idle_task_cx: TaskContext::zero_init(),
         }
+    }
+
+    // lab3
+    ///set current
+    fn set_current(&mut self, new_current: Option<Arc<TaskControlBlock>>) {
+        self.current = new_current;
     }
 
     ///Get mutable reference to `idle_task_cx`
@@ -61,6 +74,11 @@ pub fn run_tasks() {
             let mut task_inner = task.inner_exclusive_access();
             let next_task_cx_ptr = &task_inner.task_cx as *const TaskContext;
             task_inner.task_status = TaskStatus::Running;
+            // lab1 lab3
+            // 在TCB第一次被调度时，初始化TCBInner中的start_time
+            if task_inner.start_time == 0 {
+                task_inner.start_time = get_time_ms();
+            }
             // release coming task_inner manually
             drop(task_inner);
             // release coming task TCB manually
@@ -108,4 +126,64 @@ pub fn schedule(switched_task_cx_ptr: *mut TaskContext) {
     unsafe {
         __switch(switched_task_cx_ptr, idle_task_cx_ptr);
     }
+}
+
+// lab1 lab3
+/// update tcb syscall_times
+pub fn update_syscall_times(syscall_id: usize) {
+    // 只需要更新tcb.inner中的syscall_times
+    let task = current_task().unwrap();
+    let mut tcb_inner = task.inner_exclusive_access();
+
+    tcb_inner.syscall_times[syscall_id] += 1;
+}
+
+// lab2 lab3
+/// get current taskinfo
+pub fn current_task_info() -> (TaskStatus, [u32; MAX_SYSCALL_NUM], usize) {
+    let task = current_task().unwrap();
+    let tcb_inner = task.inner_exclusive_access();
+
+    let ms = get_time_ms();
+    (TaskStatus::Running, tcb_inner.syscall_times, ms - tcb_inner.start_time)
+}
+
+// lab1 lab2 lab3
+/// init task_info from tcb
+pub fn init_task_info(_ti: *mut TaskInfo){
+    let taskinfo = current_task_info();
+    let ti = TaskInfo::new(taskinfo.0, taskinfo.1, taskinfo.2,);
+
+    translated_byte_t(current_user_token(), _ti, &ti);
+}
+
+// lab2 lab3
+/// sys_mmap
+pub fn current_ms_mmap(start_va: VirtAddr, end_va: VirtAddr, perm: MapPermission) -> isize {
+    let task = current_task().unwrap();
+    let mut tcb_inner = task.inner_exclusive_access();
+    let ms = &mut tcb_inner.memory_set;
+
+    // 重叠则返回-1
+    if ms.is_overlap(start_va, end_va) {
+        return -1;
+    }
+    ms.insert_framed_area(start_va, end_va, perm);
+    0
+}
+
+// lab2 lab3
+/// sys_munmap
+pub fn current_ms_munmap(start_va: VirtAddr, end_va: VirtAddr) -> isize {
+    let task = current_task().unwrap();
+    let mut tcb_inner = task.inner_exclusive_access();
+    let ms = &mut tcb_inner.memory_set;
+
+    ms.current_ms_munmap(start_va, end_va)
+}
+
+// lab3
+/// sys_spawn
+pub fn set_current(new_current: Option<Arc<TaskControlBlock>>) {
+    PROCESSOR.exclusive_access().set_current(new_current);
 }

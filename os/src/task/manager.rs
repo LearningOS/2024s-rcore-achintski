@@ -12,6 +12,7 @@ pub struct TaskManager {
 /// A simple FIFO scheduler.
 impl TaskManager {
     ///Creat an empty TaskManager
+    // lab1中的更新操作移动到了/task/task.rs中TCBInner的new中
     pub fn new() -> Self {
         Self {
             ready_queue: VecDeque::new(),

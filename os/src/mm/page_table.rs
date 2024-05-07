@@ -4,6 +4,8 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use bitflags::*;
+// lab2
+use core::mem;
 
 bitflags! {
     /// page table entry flags
@@ -158,6 +160,21 @@ impl PageTable {
     pub fn token(&self) -> usize {
         8usize << 60 | self.root_ppn.0
     }
+    // lab2
+    /// sys_munmap
+    pub fn munmap(&mut self, start_va: VirtAddr, end_va: VirtAddr) {
+        // [start, end)
+        let mut start_vpn = start_va.floor();
+        let end_vpn = end_va.ceil();
+        while start_vpn < end_vpn {
+            if let Some(pte) = self.find_pte(start_vpn) {
+                if pte.is_valid() {
+                    self.unmap(start_vpn);
+                }
+            }
+            start_vpn.step();
+        }
+    }
 }
 
 /// Translate&Copy a ptr[u8] array with LENGTH len to a mutable u8 Vec through page table
@@ -202,6 +219,7 @@ pub fn translated_str(token: usize, ptr: *const u8) -> String {
     }
     string
 }
+
 /// Translate a ptr[u8] array through page table and return a mutable reference of T
 pub fn translated_refmut<T>(token: usize, ptr: *mut T) -> &'static mut T {
     //trace!("into translated_refmut!");
@@ -212,4 +230,28 @@ pub fn translated_refmut<T>(token: usize, ptr: *mut T) -> &'static mut T {
         .translate_va(VirtAddr::from(va))
         .unwrap()
         .get_mut()
+}
+
+// lab2
+/// Translate&Copy t into ptr in byte way
+pub fn translated_byte_t<T>(token: usize, ptr: *mut T, t: &T) {
+    // 手动查表，并不控制资源生命
+    // 本质上是从内核地址空间拷贝数据到用户地址空间
+    // 结构体变量在用户地址空间中的虚拟地址是连续的
+    // 需要将用户地址空间中的虚拟地址转换为物理地址，在（采用直接映射的）内核中直接访问
+    let t_ptr = t as *const T as *const u8;
+    let page_table = PageTable::from_token(token);
+    let mut start = ptr as usize;
+    let end = start + mem::size_of::<T>();
+    let mut t_offset = 0;
+    while start < end {
+        let start_va = VirtAddr::from(start);
+        let vpn = start_va.floor();
+        let ppn = page_table.translate(vpn).unwrap().ppn();
+        let pa = PhysAddr::from(usize::from(PhysAddr::from(ppn)) + start_va.page_offset());
+        let pa_ptr = pa.0 as *mut u8;
+        unsafe { *pa_ptr = *t_ptr.offset(t_offset as isize); }
+        t_offset += 1;
+        start += 1;
+    }
 }
