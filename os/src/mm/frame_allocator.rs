@@ -134,3 +134,10 @@ pub fn frame_allocator_test() {
     drop(v);
     println!("frame_allocator_test passed!");
 }
+
+// lab2
+/// is_full
+pub fn frame_is_full() -> bool {
+    let falloc = FRAME_ALLOCATOR.exclusive_access();
+    falloc.current == falloc.end && falloc.recycled.is_empty()
+}

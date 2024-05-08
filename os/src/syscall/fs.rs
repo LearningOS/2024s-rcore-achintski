@@ -2,9 +2,17 @@
 use crate::fs::{open_file, OpenFlags, Stat};
 use crate::mm::{translated_byte_buffer, translated_str, UserBuffer};
 use crate::task::{current_task, current_user_token};
+// lab1 lab3
+use super::{SYSCALL_WRITE, SYSCALL_READ};
+use crate::task::update_syscall_times;
+// lab4
+use super::{SYSCALL_OPEN, SYSCALL_CLOSE, SYSCALL_LINKAT, SYSCALL_UNLINKAT, SYSCALL_FSTAT};
 
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     trace!("kernel:pid[{}] sys_write", current_task().unwrap().pid.0);
+    // lab1
+    update_syscall_times(SYSCALL_WRITE);
+
     let token = current_user_token();
     let task = current_task().unwrap();
     let inner = task.inner_exclusive_access();
@@ -26,6 +34,9 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
 
 pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
     trace!("kernel:pid[{}] sys_read", current_task().unwrap().pid.0);
+    // lab3
+    update_syscall_times(SYSCALL_READ);
+
     let token = current_user_token();
     let task = current_task().unwrap();
     let inner = task.inner_exclusive_access();
@@ -48,6 +59,9 @@ pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
 
 pub fn sys_open(path: *const u8, flags: u32) -> isize {
     trace!("kernel:pid[{}] sys_open", current_task().unwrap().pid.0);
+    // lab4
+    update_syscall_times(SYSCALL_OPEN);
+
     let task = current_task().unwrap();
     let token = current_user_token();
     let path = translated_str(token, path);
@@ -63,6 +77,9 @@ pub fn sys_open(path: *const u8, flags: u32) -> isize {
 
 pub fn sys_close(fd: usize) -> isize {
     trace!("kernel:pid[{}] sys_close", current_task().unwrap().pid.0);
+    // lab4
+    update_syscall_times(SYSCALL_CLOSE);
+
     let task = current_task().unwrap();
     let mut inner = task.inner_exclusive_access();
     if fd >= inner.fd_table.len() {
@@ -78,26 +95,32 @@ pub fn sys_close(fd: usize) -> isize {
 /// YOUR JOB: Implement fstat.
 pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
     trace!(
-        "kernel:pid[{}] sys_fstat NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_fstat",
         current_task().unwrap().pid.0
     );
+    // lab4
+    update_syscall_times(SYSCALL_FSTAT);
     -1
 }
 
 /// YOUR JOB: Implement linkat.
 pub fn sys_linkat(_old_name: *const u8, _new_name: *const u8) -> isize {
     trace!(
-        "kernel:pid[{}] sys_linkat NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_linkat",
         current_task().unwrap().pid.0
     );
+    // lab4
+    update_syscall_times(SYSCALL_LINKAT);
     -1
 }
 
 /// YOUR JOB: Implement unlinkat.
 pub fn sys_unlinkat(_name: *const u8) -> isize {
     trace!(
-        "kernel:pid[{}] sys_unlinkat NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_unlinkat",
         current_task().unwrap().pid.0
     );
+    // lab4
+    update_syscall_times(SYSCALL_UNLINKAT);
     -1
 }
