@@ -38,6 +38,7 @@ pub use processor::{
 // lab3
 pub use processor::{
     update_syscall_times, init_task_info, current_ms_mmap, current_ms_munmap,set_current,
+    set_prio,
 };
 /// Suspend the current 'Running' task and run the next task in task list.
 pub fn suspend_current_and_run_next() {

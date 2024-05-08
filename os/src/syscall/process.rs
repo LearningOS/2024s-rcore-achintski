@@ -19,6 +19,8 @@ use crate::{
     syscall::{SYSCALL_MMAP, SYSCALL_MUNMAP, SYSCALL_SBRK},
     // lab3
     syscall::{SYSCALL_GETPID, SYSCALL_FORK, SYSCALL_EXEC, SYSCALL_WAITPID, SYSCALL_SPAWN, SYSCALL_SET_PRIORITY},
+    // lab3
+    task::{set_prio},
 };
 
 #[repr(C)]
@@ -267,7 +269,6 @@ pub fn sys_spawn(_path: *const u8) -> isize {
     );
     // lab3
     update_syscall_times(SYSCALL_SPAWN);
-
     // spawn
     let token = current_user_token();
     let _path = translated_str(token, _path);
@@ -291,5 +292,8 @@ pub fn sys_set_priority(_prio: isize) -> isize {
     );
     // lab3
     update_syscall_times(SYSCALL_SET_PRIORITY);
-    -1
+    if _prio < 2 {
+        return -1;
+    }
+    set_prio(_prio)
 }

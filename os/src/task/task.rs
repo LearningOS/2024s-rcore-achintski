@@ -12,6 +12,8 @@ use core::cell::RefMut;
 use crate::config::MAX_SYSCALL_NUM;
 // lab3
 use super::{__switch, set_current, add_task, current_task};
+/// big stride
+const BIG_STRIDE: isize = 10000;
 
 /// Task control block structure
 ///
@@ -79,6 +81,15 @@ pub struct TaskControlBlockInner {
     pub syscall_times: [u32; MAX_SYSCALL_NUM],
     /// The first time when the task is scheduled
     pub start_time: usize,
+
+    // lab3
+    // 注意2024s文档中的stride和pass和论文中定义相反，我们采用论文中的定义
+    /// 步长
+    pub stride: isize,
+    /// 优先级
+    pub priority: isize,
+    /// 行程值
+    pub pass: isize,
 }
 
 impl TaskControlBlockInner {
@@ -132,6 +143,10 @@ impl TaskControlBlock {
                     // lab1
                     syscall_times: [0; MAX_SYSCALL_NUM],
                     start_time: 0,// 第一次被调度的时间
+                    // lab3
+                    pass: 0,
+                    priority: 16,
+                    stride: BIG_STRIDE / 16,
                 })
             },
         };
@@ -181,6 +196,10 @@ impl TaskControlBlock {
                     // lab1 lab3
                     syscall_times: [0; MAX_SYSCALL_NUM],
                     start_time: 0,// 第一次被调度的时间
+                    // lab3
+                    pass: 0,
+                    priority: 16,
+                    stride: BIG_STRIDE / 16,
                 })
             },
         });
@@ -274,6 +293,10 @@ impl TaskControlBlock {
                     // lab1 lab3
                     syscall_times: [0; MAX_SYSCALL_NUM],
                     start_time: 0,// 第一次被调度的时间
+                    // lab3
+                    pass: 0,
+                    priority: 16,
+                    stride: BIG_STRIDE / 16,
                 })
             },
         });

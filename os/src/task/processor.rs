@@ -18,6 +18,9 @@ use crate::syscall::TaskInfo;
 use crate::mm::translated_byte_t;
 use crate::mm::{VirtAddr, MapPermission};
 use crate::config::MAX_SYSCALL_NUM;
+// lab3
+/// big stride
+const BIG_STRIDE: isize = 10000;
 
 /// Processor management structure
 pub struct Processor {
@@ -74,6 +77,9 @@ pub fn run_tasks() {
             let mut task_inner = task.inner_exclusive_access();
             let next_task_cx_ptr = &task_inner.task_cx as *const TaskContext;
             task_inner.task_status = TaskStatus::Running;
+            // lab3
+            // update pass
+            task_inner.pass += task_inner.stride;
             // lab1 lab3
             // 在TCB第一次被调度时，初始化TCBInner中的start_time
             if task_inner.start_time == 0 {
@@ -186,4 +192,14 @@ pub fn current_ms_munmap(start_va: VirtAddr, end_va: VirtAddr) -> isize {
 /// sys_spawn
 pub fn set_current(new_current: Option<Arc<TaskControlBlock>>) {
     PROCESSOR.exclusive_access().set_current(new_current);
+}
+
+// lab3
+/// sys_prio
+pub fn set_prio(prio: isize) -> isize {
+    let task = current_task().unwrap();
+    let mut tcb_inner = task.inner_exclusive_access();
+    tcb_inner.priority = prio;
+    tcb_inner.stride = BIG_STRIDE / prio;
+    prio
 }
