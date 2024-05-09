@@ -7,6 +7,8 @@ use super::{SYSCALL_WRITE, SYSCALL_READ};
 use crate::task::update_syscall_times;
 // lab4
 use super::{SYSCALL_OPEN, SYSCALL_CLOSE, SYSCALL_LINKAT, SYSCALL_UNLINKAT, SYSCALL_FSTAT};
+use crate::fs::{link_at, OSInode, AnyConvertor};
+//use core::any::Any;
 
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     trace!("kernel:pid[{}] sys_write", current_task().unwrap().pid.0);
@@ -100,7 +102,29 @@ pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
     );
     // lab4
     update_syscall_times(SYSCALL_FSTAT);
-    -1
+    let task = current_task().unwrap();
+    let inner = task.inner_exclusive_access();
+    if _fd >= inner.fd_table.len() {
+        return -1;
+    }
+    if let Some(file) = &inner.fd_table[_fd] {
+        let file = file.clone();
+        if !file.readable() {
+            return -1;
+        }
+        // release current task TCB manually to avoid multi-borrow
+        drop(inner);
+        // let any: &dyn Any = file.as_any();
+        // if let os_inode = any.downcast_ref::<OSInode>() {
+        if let Some(os_inode) = file.as_any().downcast_ref::<OSInode>() {
+            os_inode.fstat(_st);
+            0
+        } else {
+            -1
+        }
+    } else {
+        -1
+    }
 }
 
 /// YOUR JOB: Implement linkat.
@@ -111,7 +135,13 @@ pub fn sys_linkat(_old_name: *const u8, _new_name: *const u8) -> isize {
     );
     // lab4
     update_syscall_times(SYSCALL_LINKAT);
-    -1
+    let token = current_user_token();
+    let _old_name = translated_str(token, _old_name);
+    let _new_name = translated_str(token, _new_name);
+    if _old_name == _new_name {
+        return -1;
+    }
+    link_at(_old_name.as_str(), _new_name.as_str())
 }
 
 /// YOUR JOB: Implement unlinkat.

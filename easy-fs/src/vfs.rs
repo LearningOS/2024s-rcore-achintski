@@ -73,6 +73,61 @@ impl Inode {
             })
         })
     }
+
+    // lab4
+    /// 返回dev号，inode号，目录/文件类型，硬链接数量，pad
+    pub fn fstat(&self) -> (u64, u64, u32, u32, [u64; 7]) {
+        self.read_disk_inode(|disk_inode| {
+            let dev:u64 = 0;
+            let inode_id = disk_inode.inode_id as u64;
+            let mut mode:u32 = 2;
+            if disk_inode.is_file() {
+                mode = 1;
+            }else if disk_inode.is_dir() {
+                mode = 0;
+            }
+            let nlink = disk_inode.nlink;
+            let pad: [u64; 7] = [0; 7];
+            (dev, inode_id, mode, nlink, pad)
+        })
+    }
+    /// 只有root_inode能使用的link_at，因为目前只有根目录/一个目录
+    pub fn link_at(&self, old_name: &str, new_name: &str) -> isize {
+        let mut fs = self.fs.lock();
+        // 在root_inode中插入目录项
+        self.modify_disk_inode(|root_inode| {
+            if let Some(old_inode_id) = self.find_inode_id(old_name, root_inode) {
+                // append file in the dirent
+                let file_count = (root_inode.size as usize) / DIRENT_SZ;
+                let new_size = (file_count + 1) * DIRENT_SZ;
+                // increase size
+                self.increase_size(new_size as u32, root_inode, &mut fs);
+                // write dirent
+                let dirent = DirEntry::new(new_name, old_inode_id);
+                root_inode.write_at(
+                    file_count * DIRENT_SZ,
+                    dirent.as_bytes(),
+                    &self.block_device,
+                );
+                // 给old_name/old_inode_id对应的DiskInode增加硬链接计数
+                let (block_id, block_offset) = fs.get_disk_inode_pos(old_inode_id);
+                let old = Arc::new(Self::new(
+                    block_id,
+                    block_offset,
+                    self.fs.clone(),
+                    self.block_device.clone(),
+                ));
+                old.modify_disk_inode(|old_inode| {
+                    old_inode.nlink += 1;
+                });
+                0
+            } else {
+                -1
+            }
+        })
+    }
+
+
     /// Increase the size of a disk inode
     fn increase_size(
         &self,
@@ -110,7 +165,8 @@ impl Inode {
         get_block_cache(new_inode_block_id as usize, Arc::clone(&self.block_device))
             .lock()
             .modify(new_inode_block_offset, |new_inode: &mut DiskInode| {
-                new_inode.initialize(DiskInodeType::File);
+                // lab4
+                new_inode.initialize(DiskInodeType::File, new_inode_id);
             });
         self.modify_disk_inode(|root_inode| {
             // append file in the dirent

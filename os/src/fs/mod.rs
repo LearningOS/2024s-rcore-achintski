@@ -4,6 +4,36 @@ mod inode;
 mod stdio;
 
 use crate::mm::UserBuffer;
+// lab4
+pub use inode::{link_at};
+use alloc::sync::Arc;
+
+// lab4
+/// A trait that allows converting a type to a `&dyn Any` reference.
+///
+/// This trait is useful when you need to convert a type to a `&dyn Any` reference,
+/// which can be used for dynamic casting or other purposes.
+pub trait AnyConvertor {
+    /// Converts `self` to a `&dyn Any` reference.
+    ///
+    /// This method is used to convert a type to a `&dyn Any` reference,
+    /// which can be used for dynamic casting or other purposes.
+    fn as_any(&self) -> &dyn core::any::Any;
+}
+
+/// Implementation of `AnyConvertor` for `Arc<dyn File + Send + Sync>`.
+///
+/// This implementation allows `Arc<dyn File + Send + Sync>` to be converted
+/// to a `&dyn Any` reference using the `as_any` method.
+impl AnyConvertor for Arc<dyn File + Send + Sync> {
+    /// Converts `self` to a `&dyn Any` reference.
+    ///
+    /// This method is used to convert a type to a `&dyn Any` reference,
+    /// which can be used for dynamic casting or other purposes.
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
+}
 
 /// trait File for all file types
 pub trait File: Send + Sync {

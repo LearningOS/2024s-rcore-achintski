@@ -13,6 +13,11 @@ use alloc::vec::Vec;
 use bitflags::*;
 use easy_fs::{EasyFileSystem, Inode};
 use lazy_static::*;
+// lab4
+use super::{Stat, StatMode};
+use crate::mm::{translated_byte_t};
+use crate::task::{current_user_token};
+
 
 /// inode in memory
 /// A wrapper around a filesystem inode
@@ -51,6 +56,29 @@ impl OSInode {
             v.extend_from_slice(&buffer[..len]);
         }
         v
+    }
+    // lab4
+    /// sys_fstat
+    pub fn fstat(&self, _st: *mut Stat) {
+        // 先在内核空间中获取该OSInode的Stat
+        // 具体情况从OSInode.inner得到
+        let inner = self.inner.exclusive_access();
+        let state = inner.inode.fstat();
+        let mut mode = StatMode::NULL;
+        if state.2 == 1 {
+            mode = StatMode::FILE;
+        }else if state.2 == 0 {
+            mode = StatMode::DIR;
+        }
+        let st = Stat {
+            dev: state.0,
+            ino: state.1,
+            mode: mode,
+            nlink: state.3,
+            pad: state.4,
+        };
+        // 再返还给用户空间
+        translated_byte_t(current_user_token(), _st, &st);
     }
 }
 
@@ -98,6 +126,13 @@ impl OpenFlags {
             (true, true)
         }
     }
+}
+
+// lab4
+///
+pub fn link_at(old_name: &str, new_name: &str) -> isize{
+    // 更新root_inode中的dentry、old_name对应inode的nlink
+    ROOT_INODE.link_at(old_name, new_name)
 }
 
 /// Open a file
