@@ -61,7 +61,7 @@ impl OSInode {
     /// sys_fstat
     pub fn fstat(&self, _st: *mut Stat) {
         // 先在内核空间中获取该OSInode的Stat
-        // 具体情况从OSInode.inner得到
+        // 具体情况从OSInode.inner，即Inode得到
         let inner = self.inner.exclusive_access();
         let state = inner.inode.fstat();
         let mut mode = StatMode::NULL;
@@ -133,6 +133,12 @@ impl OpenFlags {
 pub fn link_at(old_name: &str, new_name: &str) -> isize{
     // 更新root_inode中的dentry、old_name对应inode的nlink
     ROOT_INODE.link_at(old_name, new_name)
+}
+///
+pub fn unlink_at(name: &str) -> isize {
+    // 不存在则返回-1
+    // nlink>1则删除目录项并减1，nlink==1则删除inode（手册并未要求）
+    ROOT_INODE.unlink_at(name)
 }
 
 /// Open a file

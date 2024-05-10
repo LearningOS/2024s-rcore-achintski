@@ -6,7 +6,11 @@ use core::fmt::{Debug, Formatter, Result};
 /// Magic number for sanity check
 const EFS_MAGIC: u32 = 0x3b800001;
 /// The max number of direct inodes
-const INODE_DIRECT_COUNT: usize = 28;
+
+// lab4
+// 因为引入了两个新的类型为u32的元数据字段，所以INODE_DIRECT_COUNT由原来的28减少到26
+const INODE_DIRECT_COUNT: usize = 26;
+
 /// The max length of inode name
 const NAME_LENGTH_LIMIT: usize = 27;
 /// The max number of indirect1 inodes

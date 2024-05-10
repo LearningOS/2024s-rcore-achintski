@@ -5,8 +5,8 @@ mod stdio;
 
 use crate::mm::UserBuffer;
 // lab4
-pub use inode::{link_at};
-use alloc::sync::Arc;
+pub use inode::{link_at, unlink_at};
+//use alloc::sync::Arc;
 
 // lab4
 /// A trait that allows converting a type to a `&dyn Any` reference.
@@ -21,11 +21,11 @@ pub trait AnyConvertor {
     fn as_any(&self) -> &dyn core::any::Any;
 }
 
-/// Implementation of `AnyConvertor` for `Arc<dyn File + Send + Sync>`.
+/// Implementation of `AnyConvertor` for any type `T` that is `'static`.
 ///
-/// This implementation allows `Arc<dyn File + Send + Sync>` to be converted
-/// to a `&dyn Any` reference using the `as_any` method.
-impl AnyConvertor for Arc<dyn File + Send + Sync> {
+/// This implementation allows any type `T` that has a `'static` lifetime to be converted to a `&dyn Any` reference.
+//impl AnyConvertor for Arc<dyn File + Send + Sync> {
+impl<T: 'static> AnyConvertor for T {
     /// Converts `self` to a `&dyn Any` reference.
     ///
     /// This method is used to convert a type to a `&dyn Any` reference,
@@ -36,7 +36,8 @@ impl AnyConvertor for Arc<dyn File + Send + Sync> {
 }
 
 /// trait File for all file types
-pub trait File: Send + Sync {
+// lab4
+pub trait File: Send + Sync + AnyConvertor {
     /// the file readable?
     fn readable(&self) -> bool;
     /// the file writable?

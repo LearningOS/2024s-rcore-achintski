@@ -75,7 +75,8 @@ impl Inode {
     }
 
     // lab4
-    /// 返回dev号，inode号，目录/文件类型，硬链接数量，pad
+    /// 返回Inode对应的DiskInode的Stat字段元组
+    // dev号，inode号，目录/文件类型，硬链接数量，pad
     pub fn fstat(&self) -> (u64, u64, u32, u32, [u64; 7]) {
         self.read_disk_inode(|disk_inode| {
             let dev:u64 = 0;
@@ -126,7 +127,54 @@ impl Inode {
             }
         })
     }
-
+    /// 只有root_inode能使用的unlink_at，因为目前只有根目录/一个目录
+    pub fn unlink_at(&self, name: &str) -> isize {
+        // 不存在则返回-1
+        // nlink>1则删除目录项并减1，nlink==1则删除inode（手册并未要求）
+        let fs = self.fs.lock();
+        self.modify_disk_inode(|root_inode| {
+            let file_count = (root_inode.size as usize) / DIRENT_SZ;
+            let mut dirent = DirEntry::empty();
+            for i in 0..file_count {
+                assert_eq!(
+                    root_inode.read_at(DIRENT_SZ * i, dirent.as_bytes_mut(), &self.block_device,),
+                    DIRENT_SZ,
+                );
+                if dirent.name() == name {
+                    // 删除对应目录项
+                    let mut offset = i * DIRENT_SZ;
+                    let mut new_dirent = DirEntry::empty();
+                    for j in (i + 1)..file_count {
+                        assert_eq!(
+                            root_inode.read_at(DIRENT_SZ * j, new_dirent.as_bytes_mut(), &self.block_device,),
+                            DIRENT_SZ,
+                        );
+                        root_inode.write_at(offset, new_dirent.as_bytes(), &self.block_device);
+                        offset += DIRENT_SZ;
+                    }
+                    root_inode.size -= DIRENT_SZ as u32;
+                    // 给对应的DiskInode的硬链接计数减1
+                    let inode_id = dirent.inode_id() as u32;
+                    let (block_id, block_offset) = fs.get_disk_inode_pos(inode_id);
+                    let old = Arc::new(Self::new(
+                        block_id,
+                        block_offset,
+                        self.fs.clone(),
+                        self.block_device.clone(),
+                    ));
+                    old.modify_disk_inode(|old_inode| {
+                        old_inode.nlink -= 1;
+                        if old_inode.nlink == 0 {
+                            // 如果硬链接计数为0，删除inode
+                            old_inode.clear_size(&self.block_device);
+                        }
+                    });
+                    return 0;
+                }
+            }
+            -1
+        })
+    }
 
     /// Increase the size of a disk inode
     fn increase_size(

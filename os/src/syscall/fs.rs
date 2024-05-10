@@ -7,8 +7,7 @@ use super::{SYSCALL_WRITE, SYSCALL_READ};
 use crate::task::update_syscall_times;
 // lab4
 use super::{SYSCALL_OPEN, SYSCALL_CLOSE, SYSCALL_LINKAT, SYSCALL_UNLINKAT, SYSCALL_FSTAT};
-use crate::fs::{link_at, OSInode, AnyConvertor};
-//use core::any::Any;
+use crate::fs::{link_at, OSInode, unlink_at};
 
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     trace!("kernel:pid[{}] sys_write", current_task().unwrap().pid.0);
@@ -109,13 +108,8 @@ pub fn sys_fstat(_fd: usize, _st: *mut Stat) -> isize {
     }
     if let Some(file) = &inner.fd_table[_fd] {
         let file = file.clone();
-        if !file.readable() {
-            return -1;
-        }
         // release current task TCB manually to avoid multi-borrow
         drop(inner);
-        // let any: &dyn Any = file.as_any();
-        // if let os_inode = any.downcast_ref::<OSInode>() {
         if let Some(os_inode) = file.as_any().downcast_ref::<OSInode>() {
             os_inode.fstat(_st);
             0
@@ -152,5 +146,7 @@ pub fn sys_unlinkat(_name: *const u8) -> isize {
     );
     // lab4
     update_syscall_times(SYSCALL_UNLINKAT);
-    -1
+    let token = current_user_token();
+    let _name = translated_str(token, _name);
+    unlink_at(_name.as_str())
 }
