@@ -4,6 +4,8 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use bitflags::*;
+// lab2
+use core::mem;
 
 bitflags! {
     /// page table entry flags
@@ -177,6 +179,30 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
         start = end_va.into();
     }
     v
+}
+
+// lab2
+/// Translate&Copy t into ptr in byte way
+pub fn translated_byte_t<T>(token: usize, ptr: *mut T, t: &T) {
+    // 手动查表，并不控制资源生命
+    // 本质上是从内核地址空间拷贝数据到用户地址空间
+    // 结构体变量在用户地址空间中的虚拟地址是连续的
+    // 需要将用户地址空间中的虚拟地址转换为物理地址，在（采用直接映射的）内核中直接访问
+    let t_ptr = t as *const T as *const u8;
+    let page_table = PageTable::from_token(token);
+    let mut start = ptr as usize;
+    let end = start + mem::size_of::<T>();
+    let mut t_offset = 0;
+    while start < end {
+        let start_va = VirtAddr::from(start);
+        let vpn = start_va.floor();
+        let ppn = page_table.translate(vpn).unwrap().ppn();
+        let pa = PhysAddr::from(usize::from(PhysAddr::from(ppn)) + start_va.page_offset());
+        let pa_ptr = pa.0 as *mut u8;
+        unsafe { *pa_ptr = *t_ptr.offset(t_offset as isize); }
+        t_offset += 1;
+        start += 1;
+    }
 }
 
 /// Create String in kernel address space from u8 Array(end with 0) in other address space

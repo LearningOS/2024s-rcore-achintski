@@ -6,6 +6,10 @@ use crate::{
         current_process, current_task, current_user_token, exit_current_and_run_next, pid2process,
         suspend_current_and_run_next, SignalFlags, TaskStatus,
     },
+    // lab1
+    timer::{get_time_us},
+    // lab2
+    mm::{translated_byte_t},
 };
 use alloc::{string::String, sync::Arc, vec::Vec};
 
@@ -164,10 +168,18 @@ pub fn sys_kill(pid: usize, signal: u32) -> isize {
 /// HINT: What if [`TimeVal`] is splitted by two pages ?
 pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
     trace!(
-        "kernel:pid[{}] sys_get_time NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_get_time",
         current_task().unwrap().process.upgrade().unwrap().getpid()
     );
-    -1
+    // lab5中的ch8_deadlock_sem1.rs测试中的sleep(500)会用到
+    // lab1 lab2
+    let us = get_time_us();
+    let ts = TimeVal {
+        sec: us / 1_000_000,
+        usec: us % 1_000_000,
+    };
+    translated_byte_t(current_user_token(), _ts, &ts);
+    0
 }
 
 /// task_info syscall

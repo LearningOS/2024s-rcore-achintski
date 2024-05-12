@@ -36,13 +36,18 @@ impl Condvar {
     }
 
     /// blocking current task, let it wait on the condition variable
-    pub fn wait(&self, mutex: Arc<dyn Mutex>) {
+    // lab5 修改参数
+    pub fn wait(&self, mutex: Arc<dyn Mutex>, tid: usize, mutex_id: usize) {
         trace!("kernel: Condvar::wait_with_mutex");
-        mutex.unlock();
+        // lab5
+        mutex.unlock(tid, mutex_id);
+
         let mut inner = self.inner.exclusive_access();
         inner.wait_queue.push_back(current_task().unwrap());
         drop(inner);
         block_current_and_run_next();
-        mutex.lock();
+
+        // lab5
+        mutex.lock(tid, mutex_id);
     }
 }

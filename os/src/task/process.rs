@@ -14,6 +14,8 @@ use alloc::sync::{Arc, Weak};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefMut;
+// lab5
+use crate::sync::DeadlockDetector;
 
 /// Process Control Block
 pub struct ProcessControlBlock {
@@ -49,6 +51,9 @@ pub struct ProcessControlBlockInner {
     pub semaphore_list: Vec<Option<Arc<Semaphore>>>,
     /// condvar list
     pub condvar_list: Vec<Option<Arc<Condvar>>>,
+    // lab5
+    /// deadlock_detector
+    pub dd: DeadlockDetector,
 }
 
 impl ProcessControlBlockInner {
@@ -119,6 +124,8 @@ impl ProcessControlBlock {
                     mutex_list: Vec::new(),
                     semaphore_list: Vec::new(),
                     condvar_list: Vec::new(),
+                    // lab5
+                    dd: DeadlockDetector::new(),
                 })
             },
         });
@@ -245,6 +252,9 @@ impl ProcessControlBlock {
                     mutex_list: Vec::new(),
                     semaphore_list: Vec::new(),
                     condvar_list: Vec::new(),
+                    // lab5
+                    dd: DeadlockDetector::new(),
+                    
                 })
             },
         });
